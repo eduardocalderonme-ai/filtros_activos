@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sallen-Key Mobile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <link rel="stylesheet" href="sallen_key.css">
+</head>
+<body>
+    <h1>Sallen-Key Mobile</h1>
+    <p class="subtitle">Diseñador Analógico • 2do y 4to Orden</p>
+
+    <!-- Configuración -->
+    <section class="card">
+        <h2>1. Parámetros Principales</h2>
+        
+        <div class="switch-wrapper">
+            <span style="font-weight: 500;">Filtro de 4to Orden</span>
+            <label class="switch">
+                <input type="checkbox" id="order_switch">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <label>Frecuencia de Corte (fc)</label>
+                <input type="number" id="fc_val" value="1000" step="any">
+            </div>
+            <div class="col">
+                <label>Unidad</label>
+                <select id="fc_unit">
+                    <option value="1">Hz</option>
+                    <option value="1000">kHz</option>
+                    <option value="1000000">MHz</option>
+                </select>
+            </div>
+        </div>
+
+        <label style="margin-top: 10px;">Plantillas Rápidas (Polinomios)</label>
+        <div class="btn-group">
+            <button onclick="loadTemplate('butter')">Butterworth</button>
+            <button onclick="loadTemplate('bessel')">Bessel</button>
+            <button onclick="loadTemplate('cheby')">Chebyshev 1dB</button>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <label>b1 (Etapa 1)</label>
+                <input type="number" id="b1_1" value="1.414214" step="any">
+            </div>
+            <div class="col">
+                <label>b0 (Etapa 1)</label>
+                <input type="number" id="b0_1" value="1.000000" step="any">
+            </div>
+        </div>
+
+        <div class="row hidden" id="stage2_params">
+            <div class="col">
+                <label>b1 (Etapa 2)</label>
+                <input type="number" id="b1_2" value="1.847759" step="any">
+            </div>
+            <div class="col">
+                <label>b0 (Etapa 2)</label>
+                <input type="number" id="b0_2" value="1.000000" step="any">
+            </div>
+        </div>
+    </section>
+
+    <!-- Componentes -->
+    <section class="card">
+        <h2>2. Reglas de Diseño</h2>
+        
+        <div class="form-group">
+            <label>Metodología</label>
+            <select id="design_rule">
+                <option value="1">Diseño 1 (Componentes Iguales, R1=R2, C1=C2)</option>
+                <option value="2">Diseño 2 (Capacitores Iguales, mu=2)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Fijar Valor Comercial</label>
+            <div class="radio-group">
+                <label class="radio-label"><input type="radio" name="fix_type" value="C" checked> Fijar Capacitor (C)</label>
+                <label class="radio-label"><input type="radio" name="fix_type" value="R"> Fijar Resistencia (R)</label>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <label id="fix_label">Valor del Capacitor</label>
+                <input type="number" id="fix_val" value="10" step="any">
+            </div>
+            <div class="col">
+                <label>Unidad</label>
+                <select id="fix_unit">
+                    <!-- Dinámico -->
+                </select>
+            </div>
+        </div>
+
+        <button class="primary" onclick="calcular()">Calcular Circuito</button>
+    </section>
+
+    <!-- Resultados -->
+    <section class="card hidden" id="results_section">
+        <h2>Resultados</h2>
+        
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tab_esquema">Esquemas</button>
+            <button class="tab-btn" data-tab="tab_bode">Gráfica Bode</button>
+            <button class="tab-btn" data-tab="tab_resumen">Resumen</button>
+            <button class="tab-btn" data-tab="tab_ideal">Netlist Ideal</button>
+            <button class="tab-btn" data-tab="tab_tl081">Netlist TL081</button>
+        </div>
+
+        <div id="tab_esquema" class="tab-pane active">
+            <div id="schematics_container"></div>
+        </div>
+        
+        <div id="tab_bode" class="tab-pane">
+            <div style="text-align: right; margin-bottom: 5px; display: flex; justify-content: flex-end; gap: 8px;">
+                <button onclick="if(bodeChart) bodeChart.zoom(1.2)" style="padding: 4px 10px; font-size: 0.9rem; font-weight: bold;">+ Zoom</button>
+                <button onclick="if(bodeChart) bodeChart.zoom(0.833)" style="padding: 4px 10px; font-size: 0.9rem; font-weight: bold;">- Zoom</button>
+                <button onclick="if(bodeChart) bodeChart.resetZoom()" style="padding: 4px 10px; font-size: 0.9rem;">Resetear</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="bodeChart"></canvas>
+            </div>
+        </div>
+
+        <div id="tab_resumen" class="tab-pane">
+            <div id="txt_summary" class="resumen-container"></div>
+        </div>
+
+        <div id="tab_ideal" class="tab-pane">
+            <textarea id="txt_ideal" readonly></textarea>
+        </div>
+
+        <div id="tab_tl081" class="tab-pane">
+            <textarea id="txt_tl081" readonly></textarea>
+        </div>
+    </section>
+
+    <script src="sallen_key.js"></script>
+</body>
+</html>
